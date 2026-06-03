@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HUD</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha512-xh6O/CkQoPOWDdYTDqeRdPCVd1SpvCA9XXcUnZS2FmJNp1coAFzvtCN9BmamE+4aHK8yyUHUSCcJHgXloTyT2A==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    body{background:transparent;overflow:hidden;width:100vw;height:100vh;font-family:'Segoe UI',sans-serif;user-select:none;-webkit-user-select:none;pointer-events:none}
+    #hud{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);display:flex;gap:4px;align-items:stretch;opacity:1;transition:opacity .4s}
+    #hud.hidden{opacity:0}
+    #hud.dead .panel{filter:grayscale(60%) brightness(.75)}
+    #speedometer{position:fixed;bottom:33px;left:50%;transform:translateX(-50%);display:none;width:540px;height:130px;pointer-events:none;margin-left:40px}
+    #speedometer.visible{display:block}
+    #speedometer .speed-display{position:absolute;top:0;left:50%;transform:translateX(-50%);display:flex;align-items:baseline;gap:4px}
+    #speedometer .speed-value{font-size:48px;font-weight:300;color:rgba(255,255,255,.98);letter-spacing:-3px;line-height:1;font-family:'Segoe UI Light',sans-serif}
+    #speedometer .speed-unit{font-size:14px;font-weight:400;color:rgba(255,255,255,.6);letter-spacing:2px}
+    #speedometer .speed-bars{position:absolute;bottom:0;left:0;width:100%;height:70px}
+    #speedometer .speed-outline{opacity:1}
+    #speedometer .speed-track-combined{position:absolute;top:0;left:0;width:540px;height:70px;background:transparent;border:none;border-radius:3px;overflow:visible}
+    #speedometer .speed-track-left-fill{position:absolute;top:0;left:0;width:18px;height:0%;background:#3b82f6;clip-path:polygon(0 0,100% 0,0 100%);transition:height .15s cubic-bezier(.4,0,.2,1);z-index:2}
+    #speedometer .speed-track-horizontal-fill{position:absolute;top:0;left:0;width:0%;height:18px;background:#3b82f6;transition:width .15s cubic-bezier(.4,0,.2,1);z-index:1}
+    #speedometer .speed-outline{z-index:3}
+    #voice-stamina-container{display:flex;gap:4px;align-items:stretch}
+    .panel{width:158px;min-height:52px;padding:9px 12px 8px;background:var(--panel-bg,rgba(14,14,14,.8));border-radius:3px;display:flex;flex-direction:column;align-items:center;gap:7px;border-top:1px solid rgba(255,255,255,.05)}
+    #panel-voice,#panel-stamina{width:52px;min-height:52px;justify-content:center}
+    #top-right-container{position:fixed;top:20px;right:20px;display:flex;flex-direction:column;gap:8px;opacity:1;transition:opacity .3s}
+    #top-right-container.hidden{opacity:0;pointer-events:none}
+    #id-box{width:60px;min-height:38px;background:var(--panel-bg,rgba(14,14,14,.8));border-radius:3px;padding:5px 8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-top:1px solid rgba(255,255,255,.05)}
+    #id-box .id-icon{display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.8)}
+    #id-box .id-icon i{font-size:14px;filter:drop-shadow(0 0 3px rgba(255,255,255,.15))}
+    #id-box .id-text{color:rgba(255,255,255,.9);font-size:12px;font-weight:600;letter-spacing:.5px}
+    #ammo-counter{width:60px;min-height:38px;background:var(--panel-bg,rgba(14,14,14,.8));border-radius:3px;padding:5px 8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-top:1px solid rgba(255,255,255,.05);transition:opacity .3s}
+    #ammo-counter.hidden{opacity:0;pointer-events:none;display:none}
+    #ammo-counter .ammo-icon{display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.8)}
+    #ammo-counter .ammo-icon i{font-size:14px;filter:drop-shadow(0 0 3px rgba(255,255,255,.15))}
+    #ammo-counter .ammo-text{color:rgba(255,255,255,.9);font-size:12px;font-weight:600;letter-spacing:.5px}
+    .icon{display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.8);line-height:1}
+    .icon i{font-size:18px;filter:drop-shadow(0 0 3px rgba(255,255,255,.15))}
+    .icon svg{width:18px;height:18px;fill:currentColor;filter:drop-shadow(0 0 3px rgba(255,255,255,.15))}
+    #voice-icon{color:rgba(255,255,255,.8);transition:none}
+    #voice-icon.talking{color:rgba(255,255,255,.8)}
+    #voice-bar-fill{background:var(--voice-inactive,#6b7280);box-shadow:none;transition:background .15s,box-shadow .15s,width .35s cubic-bezier(.4,0,.2,1)}
+    #voice-bar-fill.talking{background:var(--voice-active,#3b82f6);box-shadow:0 0 6px var(--voice-active,#3b82f6)}
+    .bar-track{width:100%;height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
+    .bar-fill{height:100%;border-radius:2px;width:100%;transition:width .35s cubic-bezier(.4,0,.2,1)}
+    #health-fill{background:var(--color-health,#3b82f6);box-shadow:0 0 6px rgba(59,130,246,.6)}
+    #stamina-fill{background:var(--color-stamina,rgba(210,210,210,.55))}
+    #armor-fill{background:var(--color-armor,rgba(225,225,225,.8));box-shadow:0 0 5px rgba(220,220,220,.3)}
+    #health-fill.low{background:var(--color-health-low,#ef4444)!important;box-shadow:0 0 8px rgba(239,68,68,.7);animation:pulse-low 1s ease-in-out infinite}
+    @keyframes pulse-low{0%,100%{opacity:1}50%{opacity:.55}}
+  </style>
+</head>
+<body>
+<div id="hud">
+  <div class="panel" id="panel-health">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+    </div>
+    <div class="bar-track">
+      <div class="bar-fill" id="health-fill" style="width:100%"></div>
+    </div>
+  </div>
+  <div id="voice-stamina-container" style="display:none">
+    <div class="panel" id="panel-voice">
+      <div class="icon" id="voice-icon">
+        <i class="fa-solid fa-microphone"></i>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="voice-bar-fill" style="width:100%"></div>
+      </div>
+    </div>
+    <div class="panel" id="panel-stamina" style="display:none">
+      <div class="icon">
+        <i class="fa-solid fa-person-running"></i>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="stamina-fill" style="width:100%"></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel" id="panel-armor">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+      </svg>
+    </div>
+    <div class="bar-track">
+      <div class="bar-fill" id="armor-fill" style="width:0%"></div>
+    </div>
+  </div>
+</div>
+
+<div id="top-right-container">
+  <div id="id-box">
+    <div class="id-icon">
+      <i class="fa-solid fa-id-card"></i>
+    </div>
+    <span class="id-text" id="id-text">0</span>
+  </div>
+  <div id="ammo-counter" class="hidden">
+    <div class="ammo-icon">
+      <i class="fa-solid fa-gun"></i>
+    </div>
+    <span class="ammo-text" id="ammo-text">0</span>
+  </div>
+</div>
+<script>
+const hud=document.getElementById('hud'),healthFill=document.getElementById('health-fill'),staminaFill=document.getElementById('stamina-fill'),armorFill=document.getElementById('armor-fill'),voiceStaminaContainer=document.getElementById('voice-stamina-container'),voicePanel=document.getElementById('panel-voice'),staminaPanel=document.getElementById('panel-stamina'),voiceIcon=document.getElementById('voice-icon'),voiceBarFill=document.getElementById('voice-bar-fill'),topRightContainer=document.getElementById('top-right-container'),idBox=document.getElementById('id-box'),idText=document.getElementById('id-text'),ammoCounter=document.getElementById('ammo-counter'),ammoText=document.getElementById('ammo-text');let healthLowThreshold=25;function applyConfig(e){const t=document.documentElement;if(e.colors){const a=e.colors;a.health&&t.style.setProperty('--color-health',a.health),a.healthLow&&t.style.setProperty('--color-health-low',a.healthLow),a.stamina&&t.style.setProperty('--color-stamina',a.stamina),a.armor&&t.style.setProperty('--color-armor',a.armor),a.voiceInactive&&t.style.setProperty('--voice-inactive',a.voiceInactive),a.voiceActive&&t.style.setProperty('--voice-active',a.voiceActive),a.panelBg&&t.style.setProperty('--panel-bg',a.panelBg)}'number'==typeof e.healthLowThreshold&&(healthLowThreshold=e.healthLowThreshold);const a=e.showVoice||e.showStamina;voiceStaminaContainer.style.display=a?'':'none',staminaPanel.style.display=e.showStamina?'':'none',!1===e.showAmmo&&(ammoCounter.style.display='none'),!1===e.showId&&(idBox.style.display='none'),e.speedUnit&&(speedUnit_=e.speedUnit,speedUnit.textContent=e.speedUnit,maxSpeed='KPH'===e.speedUnit?300:200)}window.addEventListener('message',function(e){const t=e.data;if('setConfig'===t.type)return void applyConfig(t);if('setVisible'===t.type)return void hud.classList.toggle('hidden',!t.visible);if('setDead'===t.type)return void hud.classList.toggle('dead',!!t.dead);if('updateHud'===t.type){const e=Math.max(0,Math.min(100,t.health));healthFill.style.width=e+'%',healthFill.classList.toggle('low',e<=healthLowThreshold);const a=Math.max(0,Math.min(100,t.stamina));staminaFill.style.width=a+'%';const l=Math.max(0,Math.min(100,t.armor));armorFill.style.width=l+'%';const i=!!t.talking;voiceIcon.classList.toggle('talking',i),voiceBarFill.classList.toggle('talking',i),'number'==typeof t.playerId&&(idText.textContent=t.playerId),'number'==typeof t.ammo&&t.ammo>=0?(ammoText.textContent=t.ammo,ammoCounter.classList.remove('hidden')):ammoCounter.classList.add('hidden')}});
+</script>
+</body>
+</html>
